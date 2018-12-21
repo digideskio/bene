@@ -299,7 +299,8 @@ class NewsletterSignupBlock extends BlockBase {
           '#type' => 'inline_template',
           '#template' => '{{ embed|raw }}',
           '#context' => [
-            // Todo: that second chunk of gobbledygook is probably a unique identifier for the org.
+            // Todo: that second chunk of gobbledygook is probably a unique
+            // identifier for the org: should be made configurable if so.
             'embed' => "<div id='$salsa_code'><script type='text/javascript' src='https://default.salsalabs.org/api/widget/template/1ed140ec-965b-47c3-8cb3-ae01826fde8a/?tId=$salsa_code' ></script> \</div>",
           ],
         ];
