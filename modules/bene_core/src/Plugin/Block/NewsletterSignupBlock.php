@@ -44,7 +44,7 @@ class NewsletterSignupBlock extends BlockBase {
         'disabled'  => $this->t('Disabled'),
         'external'  => $this->t('External'),
         'embedded'  => $this->t('MailChimp Form'),
-        'raw_embed' => $this->t('Embedded'),
+        'salsa_embed' => $this->t('Salsa Embed'),
       ],
     ];
     $form['title'] = [
@@ -154,16 +154,17 @@ class NewsletterSignupBlock extends BlockBase {
       }
     }
 
-    $form['raw_embed'] = [
-      '#type' => 'textarea',
-      '#title' => $this->t('Embed Code'),
-      '#default_value' => empty($this->configuration['raw_embed']) ? '' : $this->configuration['raw_embed'],
+    $form['salsa_code'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Salsa Embed Code'),
+      '#default_value' => empty($this->configuration['salsa_code']) ? '' : $this->configuration['salsa_code'],
+      '#description' => t('The unique identifier from Salsa for your form. To find this, visit the "Published Details" section of your form and look in "Form Widget Code" for something resembling: <br/> <code>&lt;div id="123456-this-is-your-code123456"&gt;</code><br/>Copy/paste the <code>123456-this-is-your-code123456</code> part here.'),
       '#states' => [
         'visible' => [
-          ':input[name="settings[style]"]' => ['value' => 'raw_embed'],
+          ':input[name="settings[style]"]' => ['value' => 'salsa_embed'],
         ],
         'required' => [
-          ':input[name="settings[style]"]' => ['value' => 'raw_embed'],
+          ':input[name="settings[style]"]' => ['value' => 'salsa_embed'],
         ],
       ],
     ];
@@ -198,18 +199,21 @@ class NewsletterSignupBlock extends BlockBase {
    * {@inheritdoc}
    */
   public function blockSubmit($form, FormStateInterface $form_state) {
-    $this->configuration['style'] = $form_state->getValue('style');
-    $this->configuration['title'] = $form_state->getValue('title');
-    $this->configuration['signup_text'] = $form_state->getValue('signup_text');
+    $this->setValue('form_state', $form_state->getValues());
+  }
 
-    $external_link_settings = $form_state->getValue('external_link_settings');
-    $this->configuration['external_link'] = $external_link_settings['external_link'];
-    $this->configuration['external_link_label'] = $external_link_settings['external_link_label'];
-
-    $mailchimp_settings = $form_state->getValue('mailchimp_settings');
-    $this->configuration['signup_block'] = $mailchimp_settings['signup_block'];
-
-    $this->configuration['raw_embed'] = $form_state->getValue('raw_embed');
+  /**
+   * Helper function to traverse form inputs and set configuration keys.
+   */
+  private function setValue($label, $value) {
+    if (is_array($value)) {
+      foreach ($value as $key => $val) {
+        $this->setValue($key, $val);
+      }
+    }
+    else {
+      $this->configuration[$label] = $value;
+    }
   }
 
   /**
@@ -288,13 +292,15 @@ class NewsletterSignupBlock extends BlockBase {
         }
         break;
 
-      case 'raw_embed':
-        // Raw Embed.
+      case 'salsa_embed':
+        // Salsa Embed.
+        $salsa_code = $this->configuration['salsa_code'];
         $build['signup']['embedded_form'] = [
           '#type' => 'inline_template',
           '#template' => '{{ embed|raw }}',
           '#context' => [
-            'embed' => $this->configuration['raw_embed'],
+            // Todo: that second chunk of gobbledygook is probably a unique identifier for the org.
+            'embed' => "<div id='$salsa_code'><script type='text/javascript' src='https://default.salsalabs.org/api/widget/template/1ed140ec-965b-47c3-8cb3-ae01826fde8a/?tId=$salsa_code' ></script> \</div>",
           ],
         ];
 
