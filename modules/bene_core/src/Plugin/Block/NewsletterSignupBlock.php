@@ -41,9 +41,10 @@ class NewsletterSignupBlock extends BlockBase {
       '#title' => $this->t('Style'),
       '#default_value' => $this->configuration['style'],
       '#options' => [
-        'disabled' => $this->t('Disabled'),
-        'external' => $this->t('External'),
-        'embedded' => $this->t('MailChimp Form'),
+        'disabled'  => $this->t('Disabled'),
+        'external'  => $this->t('External'),
+        'embedded'  => $this->t('MailChimp Form'),
+        'raw_embed' => $this->t('Embedded'),
       ],
     ];
     $form['title'] = [
@@ -153,6 +154,20 @@ class NewsletterSignupBlock extends BlockBase {
       }
     }
 
+    $form['raw_embed'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('Embed Code'),
+      '#default_value' => empty($this->configuration['raw_embed']) ? '' : $this->configuration['raw_embed'],
+      '#states' => [
+        'visible' => [
+          ':input[name="settings[style]"]' => ['value' => 'raw_embed'],
+        ],
+        'required' => [
+          ':input[name="settings[style]"]' => ['value' => 'raw_embed'],
+        ],
+      ],
+    ];
+
     return $form;
   }
 
@@ -162,11 +177,20 @@ class NewsletterSignupBlock extends BlockBase {
   public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
     parent::validateConfigurationForm($form, $form_state);
 
-    $mailchimp_settings = $form_state->getValue('mailchimp_settings');
-    $has_value = $mailchimp_settings['signup_block'];
+    switch ($form_state->getValue('style')) {
+      case 'embedded':
+        $mailchimp_settings = $form_state->getValue('mailchimp_settings');
+        if (!$mailchimp_settings['signup_block']) {
+          $form_state->setErrorByName('mailchimp_settings', t('A valid MailChimp signup block is required, please create one or choose a different style.'));
+        }
+        break;
 
-    if ($form_state->getValue('style') == 'embedded' && !$has_value) {
-      $form_state->setErrorByName('mailchimp_settings', t('A valid MailChimp signup block is required, please create one or choose a different style.'));
+      case 'raw_embed':
+        if (empty($form_state->getValue('raw_embed'))) {
+          $form_state->setErrorByName('raw_embed', t('Embed code is required to use the "Embedded" style.'));
+        }
+        break;
+
     }
   }
 
@@ -184,6 +208,8 @@ class NewsletterSignupBlock extends BlockBase {
 
     $mailchimp_settings = $form_state->getValue('mailchimp_settings');
     $this->configuration['signup_block'] = $mailchimp_settings['signup_block'];
+
+    $this->configuration['raw_embed'] = $form_state->getValue('raw_embed');
   }
 
   /**
@@ -194,7 +220,7 @@ class NewsletterSignupBlock extends BlockBase {
 
     $style = $this->configuration['style'];
 
-    if ($style == 'external' || $style == 'embedded') {
+    if (!empty($style) && $style != 'disabled') {
       $build['signup'] = [
         '#type' => 'container',
         '#weight' => 1,
@@ -221,7 +247,6 @@ class NewsletterSignupBlock extends BlockBase {
     }
     switch ($style) {
       case 'external':
-
         // External link.
         if ($this->configuration['signup_text'] || $this->configuration['title']) {
           $build['signup']['link'] = [
@@ -244,7 +269,6 @@ class NewsletterSignupBlock extends BlockBase {
         break;
 
       case 'embedded':
-
         // Embedded a signup block.
         $moduleHandler = \Drupal::service('module_handler');
         if ($moduleHandler->moduleExists('mailchimp') && $moduleHandler->moduleExists('mailchimp_signup')) {
@@ -263,6 +287,16 @@ class NewsletterSignupBlock extends BlockBase {
           }
         }
         break;
+
+      case 'raw_embed':
+        // Raw Embed.
+        $build['signup']['embedded_form'] = [
+          '#type' => 'inline_template',
+          '#template' => '{{ embed|raw }}',
+          '#context' => [
+            'embed' => $this->configuration['raw_embed'],
+          ],
+        ];
 
       default:
         // No link.
